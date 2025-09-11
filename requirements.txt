@@ -1,0 +1,20 @@
+# requirements.txt
+
+# Core UI and application framework
+PyQt6
+
+# Image handling libraries
+Pillow
+rawpy
+pillow-heif
+pillow-avif-plugin
+
+# PDF conversion libraries
+pdf2docx
+PyMuPDF
+
+# PDF merging library
+pypdf
+
+# UI Theming library
+qt-material
