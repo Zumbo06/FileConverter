@@ -9,8 +9,8 @@ import tempfile
 import json
 from functools import partial
 import shutil
-from ui.dependency_checker_ui import Ui_DependencyCheckerDialog # New Import
-# Import third-party libraries
+from ui.dependency_checker_ui import Ui_DependencyCheckerDialog 
+
 import rawpy
 import pillow_heif
 import pillow_avif
@@ -20,14 +20,14 @@ import fitz
 from PyQt6.QtWidgets import (
     QApplication, QDialog, QMainWindow, QFileDialog, QTableWidgetItem,
     QComboBox, QProgressBar, QMessageBox, QPushButton, QWidget, QFormLayout,
-    QSpinBox, QSlider, QLabel, QCheckBox, QGroupBox, QInputDialog, QAbstractItemView # Add QAbstractItemView
+    QSpinBox, QSlider, QLabel, QCheckBox, QGroupBox, QInputDialog, QAbstractItemView 
 )
 from PyQt6.QtCore import Qt, QThread, QObject, pyqtSignal
 from PyQt6.QtGui import QPixmap
 import qt_material
 from ui.main_window_ui import Ui_MainWindow
 from ui.preferences_dialog_ui import Ui_PreferencesDialog
-from ui.guide_dialog_ui import Ui_SetupGuideDialog # New Import
+from ui.guide_dialog_ui import Ui_SetupGuideDialog 
 from PIL import Image
 
 pillow_heif.register_heif_opener()
@@ -114,7 +114,6 @@ class DependencyCheckerDialog(QDialog, Ui_DependencyCheckerDialog):
 # PREFERENCES DIALOG LOGIC
 # =============================================================================
 
-# In main.py, replace the existing PreferencesDialog class with this one
 
 class PreferencesDialog(QDialog, Ui_PreferencesDialog):
     def __init__(self, current_settings, parent=None):
@@ -125,7 +124,7 @@ class PreferencesDialog(QDialog, Ui_PreferencesDialog):
         self.clearListCheckBox.setChecked(self.settings.get('clear_list_on_complete', False))
         self.saveToSourceCheckBox.setChecked(self.settings.get('save_to_source_dir', False))
         
-        # New: Populate and set the current theme
+        
         self.themeComboBox.addItems(["System Default", "Light", "Dark"])
         self.themeComboBox.setCurrentText(self.settings.get('theme', 'System Default'))
 
@@ -159,7 +158,7 @@ class BaseSettingsPanel(QWidget):
     def get_settings(self):
         raise NotImplementedError
 
-# In main.py, replace the existing settings panel classes with these corrected versions:
+
 
 class ImageSettingsPanel(BaseSettingsPanel):
     def __init__(self, parent=None):
@@ -240,7 +239,7 @@ class AudioSettingsPanel(BaseSettingsPanel):
 # =============================================================================
 # CONFIGURATION AND WORKER CLASSES
 # =============================================================================
-# In main.py, replace the entire FLEXIBLE_CONVERSION_MAP block
+
 
 RAW_EXTENSIONS = {".3fr",".arw",".cr2",".cr3",".crw",".dcr",".dng",".erf",".mos",".mrw",".orf",".pef",".raf",".raw",".rw2",".x3f"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv", ".wmv"}
@@ -265,22 +264,47 @@ def get_file_category(file_ext):
     if file_ext in FLEXIBLE_CONVERSION_MAP: return next(iter(FLEXIBLE_CONVERSION_MAP[file_ext]))
     return "unknown"
 
+
+
 class FFmpegWorker(QObject):
     progress_updated=pyqtSignal(int,int); finished=pyqtSignal(int,str); error=pyqtSignal(int,str)
     def __init__(self,r,i,o,m,s,p=None): super().__init__(p); self.row,self.i,self.o,self.mode,self.settings,self.process=r,i,o,m,s,None
     def run(self):
-        cmd=['ffmpeg','-i',self.i]; is_vid=get_file_category(os.path.splitext(self.i)[1].lower())=="video"
-        if self.mode=="video_to_audio": cmd.extend(['-vn'])
-        elif self.mode=="video_to_image": cmd.extend(['-ss','00:00:05','-vframes','1'])
-        else: # Standard video/audio conversion, apply settings
-            if self.settings:
-                if (br:=self.settings.get('video_bitrate',"Default"))!="Default": cmd.extend(['-b:v',br])
-                if (abr:=self.settings.get('audio_bitrate',"Default"))!="Default": cmd.extend(['-b:a',abr])
-                if self.settings.get('remove_audio',False): cmd.extend(['-an'])
-                if (rs:=self.settings.get('resize',"None"))!="None":
-                    h={'1080p':1080,'720p':720,'480p':480}.get(rs.split()[0],None)
-                    if h: cmd.extend(['-vf',f'scale=-2:{h}'])
-        cmd.extend(['-y',self.o])
+        is_vid = get_file_category(os.path.splitext(self.i)[1].lower()) == "video"
+        
+      
+        if self.mode == "video_to_audio":
+            cmd = ['ffmpeg', '-i', self.i, '-vn', '-y', self.o]
+        elif self.mode == "video_to_image":
+            cmd = ['ffmpeg', '-i', self.i, '-ss', '00:00:05', '-vframes', '1', '-y', self.o]
+        elif self.mode == "default":
+            output_ext = os.path.splitext(self.o)[1].lower()
+            
+          
+            if is_vid and output_ext == ".mp4":
+                cmd = [
+                    'ffmpeg', '-i', self.i,
+                    '-c:v', 'libx264',   # Re-encode video to H.264 (universal)
+                    '-c:a', 'aac',       # Re-encode audio to AAC (universal)
+                    '-pix_fmt', 'yuv420p',# Set a standard pixel format for compatibility
+                    '-y', self.o
+                ]
+            else:
+              
+                cmd = ['ffmpeg', '-i', self.i, '-y', self.o]
+        else:
+             self.error.emit(self.row, "Invalid conversion mode specified.")
+             return
+
+        
+        if self.settings and ('-c:v' in cmd or self.mode == 'default'):
+            if (br:=self.settings.get('video_bitrate',"Default"))!="Default": cmd.extend(['-b:v',br])
+            if (abr:=self.settings.get('audio_bitrate',"Default"))!="Default": cmd.extend(['-b:a',abr])
+            if self.settings.get('remove_audio',False): cmd.extend(['-an'])
+            if (rs:=self.settings.get('resize',"None"))!="None":
+                h={'1080p':1080,'720p':720,'480p':480}.get(rs.split()[0],None)
+                if h: cmd.extend(['-vf',f'scale=-2:{h}'])
+
         try:
             self.process=subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,universal_newlines=True,encoding='utf-8',creationflags=subprocess.CREATE_NO_WINDOW if sys.platform=='win32' else 0)
             dur=self.get_video_duration() if is_vid else 0
@@ -291,9 +315,13 @@ class FFmpegWorker(QObject):
             if self.process.returncode==0:self.progress_updated.emit(self.row,100);self.finished.emit(self.row,self.o)
             else:self.error.emit(self.row,f"FFmpeg error (code {self.process.returncode})")
         except Exception as e: self.error.emit(self.row,str(e))
+        
     def get_video_duration(self):
-        try:return float(subprocess.run(['ffprobe','-v','error','-show_entries','format=duration','-of','default=noprint_wrappers=1:nokey=1',self.i],capture_output=True,text=True,check=True).stdout.strip())
-        except: return None
+        try:
+            return float(subprocess.run(['ffprobe','-v','error','-show_entries','format=duration','-of','default=noprint_wrappers=1:nokey=1',self.i],capture_output=True,text=True,check=True).stdout.strip())
+        except: 
+            return None
+            
     def stop(self):
         if self.process and self.process.poll()is None: self.process.terminate();self.process.wait()
 
@@ -390,7 +418,7 @@ class PdfToTextWorker(QObject):
 
     def stop(self):
         pass
-# Other workers remain largely the same, but simplified for brevity
+
 class RawImageWorker(QObject):
     finished=pyqtSignal(int,str);error=pyqtSignal(int,str)
     def __init__(self,r,i,o,s,p=None):super().__init__(p);self.row,self.i,self.o,self.s=r,i,o,s
@@ -401,9 +429,7 @@ class RawImageWorker(QObject):
             self.finished.emit(self.row,self.o)
         except Exception as e:self.error.emit(self.row,str(e))
     def stop(self):pass
-# In main.py, replace the existing LibreOfficeWorker class with this one
 
-# In main.py, replace the existing LibreOfficeWorker class with this one
 
 class LibreOfficeWorker(QObject):
     finished=pyqtSignal(int,str)
@@ -430,16 +456,13 @@ class LibreOfficeWorker(QObject):
                 f'"{self.input_path}"'
             ]
             
-            # --- THE FINAL FIX: Force UTF-8 in the Batch File ---
-            # 'chcp 65001' sets the command prompt's active code page to UTF-8.
-            # This ensures that filenames with special characters (like ş, ı, ö, etc.)
-            # are read correctly by LibreOffice.
+       
             with open(batch_file_path, 'w', encoding='utf-8') as f:
                 f.write('@echo off\n')
-                f.write('chcp 65001 > nul\n') # Set code page to UTF-8 and hide its output
+                f.write('chcp 65001 > nul\n') 
                 f.write(' '.join(command_args))
 
-            # Execute the batch file, which now correctly handles special characters.
+
             proc = subprocess.run(
                 [batch_file_path],
                 capture_output=True,
@@ -496,7 +519,7 @@ class FFmpegGifWorker(QObject):
         self.process = None
 
     def run(self):
-        # Sensible defaults for GIFs
+      
         fps = 15
         scale_width = 480
         palette_path = os.path.join(tempfile.gettempdir(), f"palette_{os.path.basename(self.input_path)}.png")
@@ -559,9 +582,9 @@ class FFmpegGifWorker(QObject):
 # =============================================================================
 
 class FileConverterApp(QMainWindow, Ui_MainWindow):
-    def __init__(self, app_instance): # Modified to accept the app instance
+    def __init__(self, app_instance): 
         super().__init__()
-        self.app = app_instance # Store the app instance
+        self.app = app_instance 
         self.setupUi(self)
         self.setup_table()
         
@@ -573,7 +596,7 @@ class FileConverterApp(QMainWindow, Ui_MainWindow):
         self.load_settings()
         self.output_directory = self.settings.get('default_output_dir', None)
         
-        # Apply theme on startup
+        
         self.apply_theme(self.settings.get('theme', 'System Default'))
         
         self.setup_settings_panels()
@@ -588,12 +611,12 @@ class FileConverterApp(QMainWindow, Ui_MainWindow):
     def show_setup_guide(self, is_launch=False):
         """Shows the setup guide dialog."""
         dialog = SetupGuideDialog(self)
-        # Only show the checkbox if it's the automatic launch popup
+        
         dialog.dontRemindCheckBox.setVisible(is_launch)
         
         dialog.exec()
         
-        # If this was the automatic launch popup, check and save the user's preference
+        
         if is_launch:
             if dialog.get_dont_remind_state():
                 self.settings['show_setup_guide_on_launch'] = False
@@ -623,7 +646,7 @@ class FileConverterApp(QMainWindow, Ui_MainWindow):
                     'clear_list_on_complete': False,
                     'show_setup_guide_on_launch': True,
                     'save_to_source_dir': False,
-                    'theme': 'System Default' # New setting with default
+                    'theme': 'System Default' 
                 }
             
             self.presets = self.settings.get('presets', {})
@@ -637,7 +660,7 @@ class FileConverterApp(QMainWindow, Ui_MainWindow):
 
     def save_settings(self):
         try:
-            # New: Add the presets dictionary back to the main settings before saving
+            
             self.settings['presets'] = self.presets
             with open(self.settings_file, 'w') as f: json.dump(self.settings, f, indent=4)
         except: QMessageBox.warning(self, "Error", "Could not save settings.")
@@ -651,7 +674,7 @@ class FileConverterApp(QMainWindow, Ui_MainWindow):
             self.save_settings()
             self.output_directory = self.settings.get('default_output_dir', None)
 
-            # Instantly apply theme if it changed
+            #
             new_theme = self.settings.get('theme')
             if new_theme != old_theme:
                 self.apply_theme(new_theme)
@@ -662,9 +685,7 @@ class FileConverterApp(QMainWindow, Ui_MainWindow):
             qt_material.apply_stylesheet(self.app, theme='dark_teal.xml')
         elif theme_name == "Light":
             qt_material.apply_stylesheet(self.app, theme='light_blue.xml')
-        else: # "System Default"
-            # To revert to the system default, we apply an empty stylesheet,
-            # effectively removing the custom one.
+        else: 
             self.app.setStyleSheet("")
 
 
@@ -934,19 +955,18 @@ class FileConverterApp(QMainWindow, Ui_MainWindow):
         rows=[r for r in range(self.fileListTableWidget.rowCount()) if self.fileListTableWidget.item(r,2).text()=="Pending"]
         if not rows: return QMessageBox.information(self,"No Files","No pending files to convert.")
         
-        # Only ask for a directory if "save to source" is disabled
+        
         output_dir = None
         if not self.settings.get('save_to_source_dir', False):
             output_dir = self.get_output_directory_for_conversion()
             if not output_dir: return # User cancelled
 
-        # Disable UI elements including reordering
+       
         self.actionConvert_All.setEnabled(False); self.actionAdd_Files.setEnabled(False)
         self.fileListTableWidget.setDragDropMode(QAbstractItemView.DragDropMode.NoDragDrop)
 
         for row in rows:
-            self.start_conversion_for_row(row, output_dir) # Pass the single directory (or None)
-# In main.py, replace the existing start_conversion_for_row method
+            self.start_conversion_for_row(row, output_dir) 
 
     def start_conversion_for_row(self, row, batch_output_dir):
         path_item = self.fileListTableWidget.item(row,0); i_path=path_item.text()
@@ -964,7 +984,7 @@ class FileConverterApp(QMainWindow, Ui_MainWindow):
         
         thread = QThread(); worker = None
 
-        # --- UPDATED WORKER SELECTION LOGIC ---
+        
         if i_ext == ".pdf" and t_fmt == "docx":
             worker = PdfToDocxWorker(row, i_path, o_path)
         elif i_ext == ".pdf" and t_fmt == "txt":
@@ -986,7 +1006,7 @@ class FileConverterApp(QMainWindow, Ui_MainWindow):
                 worker=SevenZipWorker(row,i_path,o_path)
         else: 
             worker = PlaceholderWorker(row, f"{i_cat} to {o_cat}")
-        # --- END UPDATED LOGIC ---
+        
         
         if worker:
             self.fileListTableWidget.setDragDropMode(QAbstractItemView.DragDropMode.NoDragDrop)
@@ -1042,13 +1062,14 @@ class FileConverterApp(QMainWindow, Ui_MainWindow):
         """Creates and shows the dependency checker dialog."""
         dialog = DependencyCheckerDialog(self)
         dialog.exec()
+
 # =============================================================================
 # APPLICATION ENTRY POINT
 # =============================================================================
 def main():
     """Main function to initialize and run the application."""
     app = QApplication(sys.argv)
-    window = FileConverterApp(app_instance=app) # Pass the app instance
+    window = FileConverterApp(app_instance=app) 
     window.show()
     sys.exit(app.exec())
 
