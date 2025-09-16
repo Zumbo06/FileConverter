@@ -240,16 +240,22 @@ class AudioSettingsPanel(BaseSettingsPanel):
 # =============================================================================
 # CONFIGURATION AND WORKER CLASSES
 # =============================================================================
+# In main.py, replace the entire FLEXIBLE_CONVERSION_MAP block
+
 RAW_EXTENSIONS = {".3fr",".arw",".cr2",".cr3",".crw",".dcr",".dng",".erf",".mos",".mrw",".orf",".pef",".raf",".raw",".rw2",".x3f"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv", ".wmv"}
 AUDIO_EXTENSIONS = {".mp3", ".wav", ".ogg", ".flac", ".aac", ".wma", ".m4a"}
+VIDEO_TARGETS = ["mp4", "avi", "mkv", "mov"]
 FLEXIBLE_CONVERSION_MAP = {
     ".7z": {"archive": ["zip", "tar"]}, ".zip": {"archive": ["7z", "tar"]}, ".rar": {"archive": ["7z", "zip", "tar"]}, ".iso": {"archive": ["7z", "zip", "tar"]}, ".dmg": {"archive": ["7z", "zip", "tar"]}, ".cab": {"archive": ["7z", "zip", "tar"]}, ".gz": {"archive": ["7z", "zip", "tar"]}, ".bz2": {"archive": ["7z", "zip", "tar"]}, ".tar": {"archive": ["7z", "zip"]}, ".jar": {"archive": ["7z", "zip", "tar"]}, ".deb": {"archive": ["7z", "zip", "tar"]}, ".ace": {"archive": ["7z", "zip", "tar"]}, ".alz": {"archive": ["7z", "zip", "tar"]}, ".arc": {"archive": ["7z", "zip", "tar"]}, ".arj": {"archive": ["7z", "zip", "tar"]}, ".cpio": {"archive": ["7z", "zip", "tar"]}, ".img": {"archive": ["7z", "zip", "tar"]}, ".lha": {"archive": ["7z", "zip", "tar"]}, ".lz": {"archive": ["7z", "zip", "tar"]}, ".lzma": {"archive": ["7z", "zip", "tar"]},
-    **{ext: {"video": ["avi", "mkv", "mov"], "audio": ["mp3", "wav"], "image": ["png", "jpg", "gif"]} for ext in VIDEO_EXTENSIONS},
+    
+    
+    **{ext: {"video": [target for target in VIDEO_TARGETS if f".{target}" != ext], "audio": ["mp3", "wav"], "image": ["png", "jpg", "gif"]} for ext in VIDEO_EXTENSIONS},
+    
     **{ext: {"audio": ["wav", "ogg", "flac"] if ext!=".wav" else ["mp3","ogg","flac"]} for ext in AUDIO_EXTENSIONS},
     ".png": {"image": ["jpg", "webp", "bmp", "tiff"]}, ".jpg": {"image": ["png", "webp", "bmp", "tiff"]}, ".jpeg": {"image": ["png", "webp", "bmp", "tiff"]}, ".webp": {"image": ["png", "jpg", "bmp", "tiff"]}, ".bmp": {"image": ["png", "jpg", "webp", "tiff"]}, ".tiff": {"image": ["png", "jpg", "webp", "bmp"]}, ".tif": {"image": ["png", "jpg", "webp", "bmp"]}, ".heic": {"image": ["png", "jpg", "webp", "tiff"]}, ".heif": {"image": ["png", "jpg", "webp", "tiff"]}, ".avif": {"image": ["png", "jpg", "webp", "tiff"]}, ".gif": {"image": ["png", "webp"]}, ".ico": {"image": ["png"]}, ".icns": {"image": ["png", "ico"]}, ".psd": {"image": ["png", "jpg", "tiff"]}, ".xcf": {"image": ["png", "jpg", "tiff"]}, ".eps": {"image": ["png", "jpg"]}, ".ps": {"image": ["png", "jpg"]}, ".ppm": {"image": ["png", "jpg"]}, ".jfif": {"image": ["png", "jpg"]},
     ".docx": {"document": ["pdf", "odt", "txt"]}, ".doc": {"document": ["pdf", "odt", "txt"]},
-    ".pdf": {"document": ["docx", "txt"]}, # MODIFIED LINE
+    ".pdf": {"document": ["docx", "txt"]},
     ".odt": {"document": ["pdf", "docx"]}, ".rtf": {"document": ["pdf", "docx"]}, ".txt": {"document": ["pdf", "docx"]}, ".pub": {"document": ["pdf", "docx"]}, ".xps": {"document": ["pdf", "docx"]},
     ".pptx": {"presentation": ["pdf", "odp"]}, ".ppt": {"presentation": ["pdf", "odp"]}, ".odp": {"presentation": ["pdf", "pptx"]},
     ".xlsx": {"spreadsheet": ["pdf", "ods", "csv", "xml", "fods"]}, ".xls": {"spreadsheet": ["pdf", "ods", "csv", "xml", "fods"]}, ".ods": {"spreadsheet": ["pdf", "xlsx", "csv", "xml", "fods"]},
